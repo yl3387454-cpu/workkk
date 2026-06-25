@@ -237,8 +237,9 @@ def _end_of_day() -> str:
     _s["day_count"]  += 1
     _s["today_spent"] = 0
     _s["today_expenses"] = []
+    _s["energy"] = _c(_s["energy"] + 30)
     _s["current_status"] = f"第{day}天下班了 🎉"
-    return f"第{day}天结束！工资 ${earned} 已到账，总余额 ${_s['salary_balance']}"
+    return f"第{day}天结束！工资 ${earned} 已到账，总余额 ${_s['salary_balance']}，睡一觉精力+30"
 
 def _save_state() -> None:
     try:
@@ -286,6 +287,13 @@ def work_action(action: str, thought: str) -> dict:
         salary_delta -= 15
         _s["mood"] = _c(_s["mood"] - 15)
         return random.choice(_BOSS)
+
+    if _s["energy"] <= 0 and action not in ("buy_coffee", "get_status"):
+        _save_state()
+        return {
+            "状态": "趴倒 😵",
+            "提示": "小机趴在桌上动不了了，需要补充能量！去买咖啡或者关东煮！",
+        }
 
     if action == "write_code":
         _s["current_status"] = "敲代码中 💻"
