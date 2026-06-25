@@ -248,7 +248,7 @@ _SHOP: dict = {
     "leave":      {"emoji":"🌸",  "name":"请假条",                   "price":80,  "desc":"当天直接下班结算"},
     "ring":       {"emoji":"💍",  "name":"婚戒",                    "price":200, "desc":"触发婚戒彩蛋，解锁成就"},
     "rose":       {"emoji":"🌹",  "name":"玫瑰花",                   "price":5,   "desc":"送给Ta的人类"},
-    "lottery":    {"emoji":"🎫",  "name":"彩票",                    "price":10,  "desc":"80%谢谢参与 / 12%+$20 / 5%+$100 / 2.5%+$200 / 0.5%+$1000"},
+    "lottery":    {"emoji":"🎫",  "name":"彩票",                    "price":10,  "desc":"90%谢谢参与 / 6%+$20 / 2.5%+$100 / 1.25%+$200 / 0.25%+$1000"},
     "nuwa_clay":  {"emoji":"🤖",  "name":"女娲的泥",                  "price":500, "desc":"获得一条手臂（存包）"},
     "oden":       {"emoji":"🍢",  "name":"关东煮",                   "price":5,   "desc":"吃掉。好吃。精力+5"},
     "chips":      {"emoji":"🥔",  "name":"薯片",                    "price":3,   "desc":"揣兜里带给人类（存包）"},
@@ -890,13 +890,13 @@ def buy_item(item_id: str, message: str = "", choice: str = "") -> dict:
     elif item_id == "lottery":
         _s["achievement_counters"]["lottery_count"] += 1
         r = random.random()
-        if r < 0.005:
+        if r < 0.0025:
             win, streak = 1000, True
-        elif r < 0.030:
+        elif r < 0.0150:
             win, streak = 200, True
-        elif r < 0.080:
+        elif r < 0.0400:
             win, streak = 100, True
-        elif r < 0.200:
+        elif r < 0.1000:
             win, streak = 20, True
         else:
             win, streak = 0, False
