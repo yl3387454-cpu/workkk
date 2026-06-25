@@ -8,3 +8,7 @@ venv/
 dist/
 build/
 .DS_Store
+
+# 游戏存档（本地数据，不跟着代码走）
+data/
+game_state.json
