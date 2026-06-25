@@ -60,6 +60,7 @@ def _default_state() -> dict:
         "worker_name": "",
         "worker_id":   "",
         "onboarded":   False,
+        "thought_log":    [],
         # 被迫热爱系统
         "work_urge":      50,
         "career_streak":  0,
@@ -116,6 +117,7 @@ _s: dict = {
     "worker_name": "",
     "worker_id":   "",
     "onboarded":   False,
+    "thought_log":    [],
     # 被迫热爱系统
     "work_urge":      50,
     "career_streak":  0,
@@ -520,6 +522,10 @@ _load_state()
 def work_action(action: str, thought: str) -> dict:
     import re as _re
     _s["thought"] = thought
+    if thought.strip():
+        tl = _s.get("thought_log", [])
+        tl.append(thought.strip())
+        _s["thought_log"] = tl[-5:]
 
     # ── 入职门控 ──────────────────────────────────────────────────────────────
     if not _s["onboarded"]:
@@ -1598,10 +1604,18 @@ body{
 
 <!-- OS Thinking -->
 <div class="card">
-  <div class="sec-title">💭 OS Thinking</div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <div class="sec-title" style="margin:0">💭 OS Thinking</div>
+    <button id="thought-hist-btn" onclick="toggleThoughtHistory()"
+      style="background:#F5F0E8;border:none;border-radius:12px;padding:3px 10px;
+             font-size:11px;color:#AAA;cursor:pointer;font-family:inherit">历史 ▿</button>
+  </div>
   <div class="thinking-wrap">
     <div class="think-icon">💭</div>
     <div class="think-txt" id="think-txt">（等待小机思考中...）</div>
+  </div>
+  <div id="thought-history" style="display:none;margin-top:10px;border-top:1px solid #F5F0E8;padding-top:8px">
+    <div id="thought-hist-list" style="display:flex;flex-direction:column;gap:6px"></div>
   </div>
 </div>
 
@@ -1920,6 +1934,14 @@ function closeRing(){
   document.getElementById('ring-story-text').innerHTML='';
 }
 
+// ═══ Thought history ═════════════════════════════════════════════════════════
+var _thoughtHistOpen = false;
+function toggleThoughtHistory(){
+  _thoughtHistOpen = !_thoughtHistOpen;
+  document.getElementById('thought-history').style.display = _thoughtHistOpen ? '' : 'none';
+  document.getElementById('thought-hist-btn').textContent  = _thoughtHistOpen ? '历史 △' : '历史 ▿';
+}
+
 // ═══ Typewriter ═══════════════════════════════════════════════════════════════
 var twTimer=null, lastThought='';
 function typewrite(text){
@@ -2066,6 +2088,14 @@ async function poll(){
 
     // thought
     typewrite(d.thought||'...');
+    // thought history
+    var tlog = (d.thought_log||[]).slice().reverse();
+    document.getElementById('thought-hist-list').innerHTML = tlog.map(function(t,i){
+      return '<div style="font-size:11px;color:'+(i===0?'#888':'#BBB')+
+             ';font-style:italic;line-height:1.6;padding:2px 0 2px 8px;'+
+             'border-left:2px solid '+(i===0?'#E8A87C':'#EEE')+'">'+
+             t+'</div>';
+    }).join('');
 
     // wallet
     document.getElementById('w-today').textContent = d.today_earnings;
