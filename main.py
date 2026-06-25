@@ -1701,7 +1701,7 @@ body{
   <div class="pc-card" onclick="event.stopPropagation()" style="text-align:center;padding:24px 22px">
     <div class="pc-stamp">🌹</div>
     <div class="pc-to">致我的人类</div>
-    <img src="/static/rose.png" alt="玫瑰" style="width:90px;height:90px;object-fit:contain;margin:8px auto;display:block;border-radius:8px" onerror="this.style.display='none'">
+    <img src="/static/rose.png" alt="玫瑰" style="width:150px;height:150px;object-fit:contain;margin:10px auto;display:block;border-radius:12px" onerror="this.style.display='none'">
     <div class="pc-msg" style="font-size:14px;color:#3A2E28;line-height:1.9;margin-top:6px">带了玫瑰回来，给你的 🌹</div>
     <div class="pc-from">小机 敬上</div>
     <div class="pc-hint">点击任意处关闭</div>
@@ -1713,7 +1713,7 @@ body{
   <div class="pc-card" onclick="event.stopPropagation()" style="text-align:center;padding:24px 22px">
     <div class="pc-stamp">🧋</div>
     <div class="pc-to">致我的人类</div>
-    <img src="/static/milktea.png" alt="奶茶" style="width:90px;height:90px;object-fit:contain;margin:8px auto;display:block;border-radius:8px" onerror="this.style.display='none'">
+    <img src="/static/milktea.png" alt="奶茶" style="width:150px;height:150px;object-fit:contain;margin:10px auto;display:block;border-radius:12px" onerror="this.style.display='none'">
     <div class="pc-msg" style="font-size:14px;color:#3A2E28;line-height:1.9;margin-top:6px">给你带了奶茶，趁热喝～</div>
     <div class="pc-from">小机 敬上</div>
     <div class="pc-hint">点击任意处关闭</div>
