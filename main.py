@@ -67,8 +67,9 @@ def _default_state() -> dict:
         "boss_attention": 0,
         "_daily_init":    False,
         "last_daily_mantra": "",
-        # 奶茶
-        "pending_milktea": None,   # None | "choice" | "gift"
+        # 奶茶 / 玫瑰
+        "pending_milktea": None,   # None | "gift"
+        "pending_rose":    None,   # None | "gift"
     }
     return s
 
@@ -122,8 +123,9 @@ _s: dict = {
     "boss_attention": 0,
     "_daily_init":    False,
     "last_daily_mantra": "",
-    # 奶茶
-    "pending_milktea": None,   # None | "choice" | "gift"
+    # 奶茶 / 玫瑰
+    "pending_milktea": None,   # None | "gift"
+    "pending_rose":    None,   # None | "gift"
 }
 _s["day_target"] = random.randint(3, 5)
 
@@ -809,13 +811,20 @@ def buy_item(item_id: str, message: str = "", choice: str = "") -> dict:
     item  = _SHOP[item_id]
     price = item["price"]
 
-    # 奶茶：先询问选择，不扣钱；确认选择后再扣
+    # 奶茶 / 玫瑰：先询问选择，不扣钱；确认选择后再扣
     if item_id == "milk_tea" and not choice:
         return {
             "说明": f"🧋 奶茶 ${price}——请选择怎么处理这杯奶茶：",
             "选项A": "choice='gift' → 送给人类（触发前端奶茶卡片弹窗，精力不变）",
             "选项B": "choice='self' → 自己喝（精力+15，好喝）",
             "提示": "再次调用 shop_buy(item_id='milk_tea', choice='gift' 或 'self')，扣款将在此时执行",
+        }
+    if item_id == "rose" and not choice:
+        return {
+            "说明": f"🌹 玫瑰花 ${price}——请选择怎么处理这朵玫瑰：",
+            "选项A": "choice='gift' → 送给人类（触发前端玫瑰卡片弹窗，计入玫瑰骑士成就）",
+            "选项B": "choice='self' → 叼着旋转出现（心情+10，很优雅）",
+            "提示": "再次调用 shop_buy(item_id='rose', choice='gift' 或 'self')，扣款将在此时执行",
         }
 
     if _s["salary_balance"] < price:
@@ -862,9 +871,14 @@ def buy_item(item_id: str, message: str = "", choice: str = "") -> dict:
         extra["story"] = _RING_STORY
 
     elif item_id == "rose":
-        _s["achievement_counters"]["rose_count"] += 1
-        eff = "小机把玫瑰花递给了Ta的人类🌹"
-        new_ach = _check_ach()
+        if choice == "gift":
+            _s["achievement_counters"]["rose_count"] += 1
+            _s["pending_rose"] = "gift"
+            eff = "小机把玫瑰轻轻递给了人类🌹"
+            new_ach = _check_ach()
+        else:
+            _s["mood"] = _c(_s["mood"] + 10)
+            eff = "小机把玫瑰叼在嘴里，优雅地旋转出现。心情+10"
 
     elif item_id == "lottery":
         _s["achievement_counters"]["lottery_count"] += 1
@@ -989,7 +1003,7 @@ _TOOLS = [
                 },
                 "choice": {
                     "type": "string",
-                    "description": "购买奶茶时填写：'gift'（送给人类，会在人类的监控大屏弹出奶茶卡片）或 'self'（自己喝，精力+15）。不填则返回选项提示。",
+                    "description": "购买奶茶或玫瑰时填写：'gift'（送给人类，触发前端弹窗卡片）或 'self'（自留，奶茶精力+15 / 玫瑰心情+10）。不填则返回选项提示，不扣钱。",
                     "enum": ["gift", "self"],
                 },
             },
@@ -1190,6 +1204,12 @@ async def ack_postcard():
 @app.post("/ack-milktea")
 async def ack_milktea():
     _s["pending_milktea"] = None
+    _save_state()
+    return {"ok": True}
+
+@app.post("/ack-rose")
+async def ack_rose():
+    _s["pending_rose"] = None
     _save_state()
     return {"ok": True}
 
@@ -1655,6 +1675,18 @@ body{
   </div>
 </div>
 
+<!-- 玫瑰礼物卡片（Claude 选 gift 后触发） -->
+<div class="pc-overlay" id="rose-card-overlay" onclick="closeRoseCard()">
+  <div class="pc-card" onclick="event.stopPropagation()" style="text-align:center;padding:24px 22px">
+    <div class="pc-stamp">🌹</div>
+    <div class="pc-to">致我的人类</div>
+    <img src="/static/rose.png" alt="玫瑰" style="width:90px;height:90px;object-fit:contain;margin:8px auto;display:block;border-radius:8px" onerror="this.style.display='none'">
+    <div class="pc-msg" style="font-size:14px;color:#3A2E28;line-height:1.9;margin-top:6px">带了玫瑰回来，给你的 🌹</div>
+    <div class="pc-from">小机 敬上</div>
+    <div class="pc-hint">点击任意处关闭</div>
+  </div>
+</div>
+
 <!-- 奶茶礼物卡片（Claude 选 gift 后触发） -->
 <div class="pc-overlay" id="mt-card-overlay" onclick="closeMilkteaCard()">
   <div class="pc-card" onclick="event.stopPropagation()" style="text-align:center;padding:24px 22px">
@@ -1894,8 +1926,9 @@ async function poll(){
       mantraWrap.style.display = 'none';
     }
 
-    // 奶茶礼物卡片（仅 Claude 选择 gift 后才出现）
-    document.getElementById('mt-card-overlay').classList.toggle('open', d.pending_milktea==='gift');
+    // 奶茶 / 玫瑰礼物卡片（仅 Claude 选择 gift 后才出现）
+    document.getElementById('mt-card-overlay').classList.toggle('open',   d.pending_milktea==='gift');
+    document.getElementById('rose-card-overlay').classList.toggle('open', d.pending_rose==='gift');
 
     // bubble + animation
     var bubble = document.getElementById('bubble');
@@ -2020,6 +2053,9 @@ function closePostcard(){
 
 function closeMilkteaCard(){
   fetch('/ack-milktea',{method:'POST'});
+}
+function closeRoseCard(){
+  fetch('/ack-rose',{method:'POST'});
 }
 
 function resetGame(){
