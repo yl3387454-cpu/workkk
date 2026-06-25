@@ -217,6 +217,11 @@ def _auth(req: Request) -> None:
         )
 
 # ── OAuth ──────────────────────────────────────────────────────────────────────
+@app.get("/.well-known/oauth-protected-resource")
+async def oauth_resource(req: Request):
+    b = _base(req)
+    return {"resource": b, "authorization_servers": [b]}
+
 @app.get("/.well-known/oauth-authorization-server")
 async def oauth_meta(req: Request):
     b = _base(req)
@@ -230,6 +235,14 @@ async def oauth_meta(req: Request):
         "code_challenge_methods_supported":     ["S256"],
         "token_endpoint_auth_methods_supported": ["client_secret_post", "none"],
     }
+
+@app.options("/oauth/register")
+async def oauth_register_options():
+    return Response(headers={
+        "Access-Control-Allow-Origin":  "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "*",
+    })
 
 @app.post("/oauth/register")
 async def oauth_register(req: Request):
