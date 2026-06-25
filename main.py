@@ -8,11 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import (
     HTMLResponse, JSONResponse, Response, RedirectResponse, StreamingResponse,
 )
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="AI上班模拟器")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
 )
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ── OAuth stores ───────────────────────────────────────────────────────────────
 _clients: dict = {}
@@ -836,385 +838,410 @@ async def home():
 
 
 # ── Dashboard ──────────────────────────────────────────────────────────────────
-_DASHBOARD = r"""<!DOCTYPE html>
+_DASHBOARD = """<!DOCTYPE html>
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>WORKKK互联网精力有限公司</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
-:root{
-  --bg:#C8AFA0;--card:#DDD0C8;--card2:#EAE0DA;
-  --text:#3D2B1F;--text2:#7A5C4E;--text3:#B09888;
-  --accent:#8B5E3C;--btn:#6B4226;--btn2:#5A3018;
-  --btn-txt:#F8F0EC;--border:#C4B0A4;
-  --gold:#C9A030;--red:#C04030;--green:#4A7A4A;
-  --shadow:0 2px 8px rgba(61,43,31,.15);
-  --shadow2:0 4px 16px rgba(61,43,31,.2);
-}
 *{box-sizing:border-box;margin:0;padding:0}
 body{
-  background:var(--bg);color:var(--text);
-  font-family:'Hiragino Kaku Gothic Pro','PingFang SC','Microsoft YaHei',system-ui,sans-serif;
-  font-size:13px;line-height:1.5;min-height:100vh;
+  background:#F5F0E8;
+  font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',
+    'Noto Sans CJK SC',sans-serif;
+  font-size:14px;line-height:1.5;min-height:100vh;
+  color:#3A2E28;
 }
-.wrap{max-width:540px;margin:0 auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.page{max-width:480px;margin:0 auto;padding:12px;display:flex;flex-direction:column;gap:10px}
 
-/* ── Header ── */
-header{
-  background:var(--card);border-radius:12px;
-  padding:14px 16px;text-align:center;
-  box-shadow:var(--shadow);border:1px solid var(--border);
-}
-.co-name{
-  font-family:'Press Start 2P',monospace;font-size:9px;
-  color:var(--accent);letter-spacing:.06em;line-height:1.8;
-}
-.co-sub{font-size:11px;color:var(--text2);margin-top:4px;font-style:italic}
+/* ── cards ── */
+.card{background:#fff;border-radius:16px;padding:14px 16px;box-shadow:0 2px 10px rgba(0,0,0,.07)}
+.sec-title{font-size:12px;font-weight:700;color:#E8A87C;margin-bottom:10px;letter-spacing:.05em}
 
-/* ── Main grid ── */
-.main-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* ── header ── */
+.hdr{text-align:center}
+.hdr-main{font-size:13px;font-weight:700;color:#3A2E28;letter-spacing:.04em}
+.hdr-sub{font-size:11px;color:#AAA;font-style:italic;margin-top:3px}
 
-/* ── Cards ── */
-.card{
-  background:var(--card);border-radius:10px;padding:12px;
-  box-shadow:var(--shadow);border:1px solid var(--border);
+/* ── badge strip ── */
+.badge-strip{
+  display:flex;gap:6px;justify-content:center;flex-wrap:wrap;
+  margin-bottom:12px;
 }
-.sec-title{
-  font-family:'Press Start 2P',monospace;font-size:7px;
-  color:var(--accent);margin-bottom:8px;letter-spacing:.1em;
+.badge-pill{
+  background:#FFF3EC;border:1.5px solid #E8A87C;
+  border-radius:20px;padding:3px 10px;
+  font-size:11px;color:#B5712A;font-weight:600;
 }
 
-/* ── Badge ── */
-.badge-card{display:flex;flex-direction:column;align-items:center;gap:6px}
-.badge-hdr{
-  font-family:'Press Start 2P',monospace;font-size:7px;color:var(--accent);
-  width:100%;text-align:center;border-bottom:1px solid var(--border);
-  padding-bottom:6px;
+/* ── character area ── */
+.char-area{display:flex;flex-direction:column;align-items:center;gap:10px}
+.char-wrap{position:relative;display:inline-block}
+.clawd-img{width:120px;height:120px;object-fit:contain;border-radius:12px;display:block}
+.clawd-fallback{
+  width:120px;height:120px;border-radius:12px;
+  background:#F5F0E8;display:flex;align-items:center;justify-content:center;
+  font-size:48px;
 }
-.badge-rows{width:100%;font-size:10px;color:var(--text2);line-height:2}
-.badge-rows b{color:var(--text);font-size:11px}
-.clawd-wrap{width:60px;height:90px;position:relative;margin:4px auto}
-#clawd{position:absolute;top:0;left:0;width:1px;height:1px;image-rendering:pixelated}
-.day-prog{
-  font-size:10px;color:var(--text2);
-  background:var(--card2);border-radius:20px;
-  padding:3px 10px;border:1px solid var(--border);
-  white-space:nowrap;
+.status-bubble{
+  position:absolute;top:-38px;left:50%;transform:translateX(-50%);
+  background:#fff;border:2px solid #E8A87C;border-radius:20px;
+  padding:4px 12px;white-space:nowrap;font-size:13px;
+  box-shadow:0 2px 8px rgba(0,0,0,.1);
+  opacity:0;transition:opacity .3s;pointer-events:none;
 }
-.prog-bar-wrap{width:100%;height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:4px}
-.prog-bar-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .4s ease}
+.status-bubble.show{opacity:1}
+.status-bubble::after{
+  content:'';position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);
+  border:4px solid transparent;border-top-color:#E8A87C;
+}
 
-/* ── Status grid ── */
+/* progress capsules */
+.progress-caps{display:flex;gap:5px}
+.cap{
+  width:28px;height:10px;border-radius:5px;
+  background:#E0D8D0;transition:background .3s;
+}
+.cap.done{background:#8FBC8F}
+
+/* ── stat grid ── */
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.stat-card{
-  background:var(--card);border-radius:10px;padding:9px 10px;
-  box-shadow:var(--shadow);border:1px solid var(--border);
-}
-.stat-lbl{font-size:10px;color:var(--text2);margin-bottom:2px}
-.stat-val{font-size:14px;font-weight:700;color:var(--text);word-break:break-all;line-height:1.3}
-.mini-bar{height:4px;background:var(--border);border-radius:2px;margin-top:5px;overflow:hidden}
-.mini-bar>div{height:100%;border-radius:2px;transition:width .4s ease}
-#bm-fill{background:#D46088}
-#be-fill{background:#4A7ACC}
+.stat-card{background:#fff;border-radius:12px;padding:10px 12px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.stat-lbl{font-size:11px;color:#AAA;margin-bottom:4px}
+.stat-val{font-size:15px;font-weight:700;color:#3A2E28}
+.mini-bar{height:5px;border-radius:3px;background:#F0EBE5;margin-top:6px;overflow:hidden}
+.mini-bar>div{height:100%;border-radius:3px;transition:width .4s ease}
+.bar-mood  {background:#F5A0B5}
+.bar-energy{background:#F5C842}
+.bar-skill {background:#8FBC8F}
 
-/* ── Log ── */
-.log-scroll{
-  max-height:100px;overflow-y:auto;font-size:11px;color:var(--text2);line-height:1.9;
-}
-.log-scroll div{border-bottom:1px solid var(--border);padding:1px 0}
-.log-scroll div:last-child{border:none;color:var(--text)}
-
-/* ── Thinking ── */
-.thinking-txt{
-  font-size:13px;color:var(--text);min-height:22px;
-  font-style:italic;line-height:1.7;word-break:break-all;
-}
-.cursor::after{content:'|';animation:blink .5s step-end infinite;color:var(--accent)}
+/* ── thinking ── */
+.thinking-wrap{display:flex;gap:8px;align-items:flex-start}
+.think-icon{font-size:22px;flex-shrink:0;line-height:1.2}
+.think-txt{font-size:13px;color:#888;font-style:italic;line-height:1.7;min-height:20px;word-break:break-all}
+.cursor::after{content:'|';animation:blink .5s step-end infinite;color:#E8A87C}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
 
-/* ── Bottom row 1 ── */
-.brow1{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:start}
-.salary-badge{
-  width:72px;height:72px;border-radius:50%;
-  background:var(--gold);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  color:#fff;text-align:center;flex-shrink:0;box-shadow:var(--shadow2);
-}
-.salary-badge .amt{
-  font-family:'Press Start 2P',monospace;font-size:9px;margin-bottom:2px;
-}
-.salary-badge .lbl{font-size:9px;opacity:.9}
-.balance-card{font-size:12px}
-.bal-main{font-size:13px;color:var(--text);margin-bottom:4px}
-.bal-amt{font-weight:700;color:var(--accent);font-size:15px}
-.exp-btn{
-  background:none;border:none;cursor:pointer;
-  color:var(--text2);font-size:11px;padding:2px 0;
-  display:flex;align-items:center;gap:4px;font-family:inherit;
-}
-.exp-list{
-  margin-top:6px;border-top:1px solid var(--border);padding-top:6px;
-  font-size:11px;color:var(--text2);display:none;max-height:100px;overflow-y:auto;
-}
-.exp-row{display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px dotted var(--border)}
-.shop-btn{
-  padding:10px 12px;background:var(--btn);color:var(--btn-txt);
-  border:none;border-radius:8px;cursor:pointer;
-  font-family:'Press Start 2P',monospace;font-size:7px;
-  box-shadow:var(--shadow2);letter-spacing:.06em;line-height:1.8;
-  align-self:center;transition:background .15s;
-}
-.shop-btn:hover{background:var(--btn2)}
+/* ── log ── */
+.log-list{max-height:110px;overflow-y:auto;display:flex;flex-direction:column;gap:2px}
+.log-row{font-size:11px;color:#999;padding:4px 0;border-bottom:1px solid #F5F0E8;display:flex;gap:6px}
+.log-row:last-child{border:none;color:#3A2E28}
+.log-dot{flex-shrink:0;color:#E8A87C}
+.log-ts{flex-shrink:0;color:#CCC}
 
-/* ── Bottom row 2 ── */
-.brow2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.ach-item,.inv-item{
-  font-size:11px;padding:3px 0;
-  border-bottom:1px dotted var(--border);color:var(--text2);
+/* ── bottom wallet row ── */
+.wallet-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.wallet-card{
+  background:#fff;border-radius:14px;padding:10px;
+  box-shadow:0 2px 8px rgba(0,0,0,.06);
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  cursor:default;
 }
-.empty{font-size:11px;color:var(--text3);font-style:italic}
+.wallet-card.shop-btn{cursor:pointer;background:#E8A87C;transition:background .15s}
+.wallet-card.shop-btn:hover{background:#D9956A}
+.wallet-card.shop-btn .w-lbl,.wallet-card.shop-btn .w-val{color:#fff}
+.w-icon{font-size:20px}
+.w-lbl{font-size:10px;color:#AAA}
+.w-val{font-size:15px;font-weight:700;color:#3A2E28}
 
-/* ── Shop modal ── */
-.overlay{
-  position:fixed;inset:0;background:rgba(61,43,31,.55);
-  z-index:100;display:none;align-items:flex-end;justify-content:center;
-}
-.overlay.open{display:flex}
-.modal{
-  background:var(--card);border-radius:16px 16px 0 0;
-  width:100%;max-width:540px;max-height:80vh;overflow-y:auto;
-  padding:16px;box-shadow:0 -4px 24px rgba(61,43,31,.25);
-}
-.modal-hdr{
+/* ── collapsible ── */
+.collapsible-hdr{
   display:flex;justify-content:space-between;align-items:center;
-  margin-bottom:6px;
+  cursor:pointer;user-select:none;
 }
-.modal-hdr-left{font-family:'Press Start 2P',monospace;font-size:8px;color:var(--accent)}
-.modal-hdr-bal{font-size:12px;color:var(--text2)}
-.modal-hdr-bal b{color:var(--accent)}
-.close-btn{
-  background:none;border:1px solid var(--border);border-radius:50%;
-  width:24px;height:24px;cursor:pointer;color:var(--text2);font-size:13px;
-  display:flex;align-items:center;justify-content:center;
+.collapsible-hdr .arrow{font-size:12px;color:#AAA;transition:transform .2s}
+.collapsible-hdr.open .arrow{transform:rotate(180deg)}
+.collapsible-body{display:none;margin-top:10px;display:flex;flex-direction:column;gap:4px}
+.collapsible-body.hidden{display:none}
+.tag-item{
+  display:inline-flex;align-items:center;gap:5px;
+  background:#F5F0E8;border-radius:20px;padding:4px 10px;
+  font-size:12px;color:#7A6A60;margin:2px;
 }
-.shop-note{
-  font-size:10px;color:var(--text3);text-align:center;
-  margin-bottom:12px;font-style:italic;
-  background:var(--card2);border-radius:6px;padding:5px;
-}
-.shop-row{
-  display:flex;align-items:flex-start;gap:10px;
-  padding:10px 0;border-bottom:1px solid var(--border);
-}
-.shop-row:last-child{border:none}
-.shop-emoji{font-size:22px;flex-shrink:0;line-height:1}
-.shop-info{flex:1}
-.shop-name{font-weight:700;font-size:12px;color:var(--text)}
-.shop-desc{font-size:10px;color:var(--text2);margin-top:2px}
-.shop-price{
-  font-family:'Press Start 2P',monospace;font-size:8px;
-  color:var(--accent);flex-shrink:0;padding-top:3px;
-}
+.empty-hint{font-size:12px;color:#CCC;font-style:italic}
 
-/* ── Ring modal ── */
+/* ── shop modal (bottom sheet) ── */
+.sheet-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.35);
+  z-index:100;display:none;align-items:flex-end;
+}
+.sheet-overlay.open{display:flex}
+.sheet{
+  background:#fff;border-radius:20px 20px 0 0;
+  width:100%;max-width:480px;margin:0 auto;
+  max-height:75vh;overflow-y:auto;padding:16px;
+  box-shadow:0 -4px 24px rgba(0,0,0,.15);
+  animation:slideUp .25s ease;
+}
+@keyframes slideUp{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
+.sheet-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.sheet-title{font-size:15px;font-weight:700;color:#3A2E28}
+.sheet-close{
+  width:28px;height:28px;border-radius:50%;border:none;
+  background:#F5F0E8;cursor:pointer;font-size:16px;
+  display:flex;align-items:center;justify-content:center;color:#888;
+}
+.sheet-bal{font-size:12px;color:#AAA;margin-bottom:12px}
+.sheet-bal b{color:#E8A87C}
+.sheet-note{
+  font-size:11px;color:#BBB;font-style:italic;text-align:center;
+  background:#FAFAFA;border-radius:8px;padding:6px;margin-bottom:12px;
+}
+.shop-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.shop-item{
+  background:#FAFAFA;border-radius:12px;padding:10px;
+  border:1.5px solid #F0EBE5;
+}
+.shop-emoji{font-size:26px;margin-bottom:4px}
+.shop-name{font-size:12px;font-weight:600;color:#3A2E28}
+.shop-price{font-size:12px;color:#E8A87C;font-weight:700;margin:2px 0}
+.shop-desc{font-size:10px;color:#BBB;line-height:1.4}
+
+/* ── ring easter egg ── */
 .ring-overlay{
   position:fixed;inset:0;z-index:200;
   background:linear-gradient(135deg,#FFD6E8,#FFC0D8,#FFB0CE);
   display:none;align-items:center;justify-content:center;
+  overflow:hidden;
 }
 .ring-overlay.open{display:flex}
-.ring-box{max-width:340px;padding:40px 32px;text-align:center}
+.ring-box{
+  background:rgba(255,255,255,.92);border-radius:20px;
+  max-width:320px;padding:32px 28px;text-align:center;
+  box-shadow:0 8px 32px rgba(180,60,100,.2);
+}
 .ring-line{
-  font-size:15px;color:#4A1828;line-height:2.2;
+  font-size:14px;color:#3A2E28;line-height:2.2;
   opacity:0;transform:translateY(8px);
   transition:opacity .6s ease,transform .6s ease;
 }
 .ring-line.show{opacity:1;transform:translateY(0)}
-
-@media(max-width:500px){
-  .main-grid,.brow2{grid-template-columns:1fr}
-  .stat-grid{grid-template-columns:1fr 1fr}
-  .brow1{grid-template-columns:auto 1fr auto}
+/* floating hearts */
+.heart{
+  position:absolute;font-size:18px;pointer-events:none;
+  animation:floatHeart linear infinite;
+}
+@keyframes floatHeart{
+  0%  {transform:translateY(100vh) scale(.8);opacity:.9}
+  100%{transform:translateY(-120px) scale(1.1);opacity:0}
 }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="page">
 
 <!-- Header -->
-<header>
-  <div class="co-name">WORKKK互联网精力有限公司</div>
-  <div class="co-sub">我们不做情感公司——Yours husband</div>
-</header>
+<div class="card hdr">
+  <div class="hdr-main">WORKKK互联网精力有限公司</div>
+  <div class="hdr-sub">我们不做情感公司——Yours husband</div>
+</div>
 
-<!-- Main: Badge + Status -->
-<div class="main-grid">
-
-  <!-- Badge -->
-  <div class="card badge-card">
-    <div class="badge-hdr">工 牌</div>
-    <div class="badge-rows">
-      <div><b>机名</b> <span id="worker-name">（未登记）</span></div>
-      <div><b>工号</b> <span id="worker-id">（未登记）</span></div>
-      <div><b>在职</b> 第 <b id="day-count">1</b> 天</div>
+<!-- Main character -->
+<div class="card">
+  <div class="char-area">
+    <!-- badge strip -->
+    <div class="badge-strip">
+      <div class="badge-pill" id="b-name">机名：（未登记）</div>
+      <div class="badge-pill" id="b-id">工号：（未登记）</div>
+      <div class="badge-pill" id="b-day">在职第1天</div>
     </div>
-    <div class="clawd-wrap"><div id="clawd"></div></div>
-    <div class="day-prog">
-      进度 <b id="day-prog">0/4</b>
-      <div class="prog-bar-wrap"><div class="prog-bar-fill" id="prog-fill" style="width:0%"></div></div>
+    <!-- character + bubble -->
+    <div class="char-wrap">
+      <div class="status-bubble" id="bubble"></div>
+      <img
+        id="clawd-img"
+        src="/static/clawd.png"
+        alt="小机"
+        class="clawd-img"
+        onerror="this.style.display='none';document.getElementById('clawd-fb').style.display='flex'"
+      >
+      <div class="clawd-fallback" id="clawd-fb" style="display:none">🤖</div>
     </div>
+    <!-- day progress capsules -->
+    <div class="progress-caps" id="prog-caps"></div>
   </div>
+</div>
 
-  <!-- Status cards 2x2 -->
-  <div class="stat-grid">
-    <div class="stat-card" style="grid-column:1/-1">
-      <div class="stat-lbl">📟 状态</div>
-      <div class="stat-val" id="val-status" style="font-size:12px">--</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-lbl">❤ 心情</div>
-      <div class="stat-val" id="val-mood">100</div>
-      <div class="mini-bar"><div id="bm-fill" style="width:100%"></div></div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-lbl">⚡ 精力</div>
-      <div class="stat-val" id="val-energy">100</div>
-      <div class="mini-bar"><div id="be-fill" style="width:100%"></div></div>
-    </div>
-    <div class="stat-card" style="grid-column:1/-1">
-      <div class="stat-lbl">🎮 摸鱼技能</div>
-      <div class="stat-val" id="val-skill">0</div>
-    </div>
+<!-- Status 2×2 -->
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-lbl">❤️ 心情</div>
+    <div class="stat-val" id="v-mood">100</div>
+    <div class="mini-bar"><div class="bar-mood" id="bm" style="width:100%"></div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-lbl">⚡ 精力</div>
+    <div class="stat-val" id="v-energy">100</div>
+    <div class="mini-bar"><div class="bar-energy" id="be" style="width:100%"></div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-lbl">🎮 摸鱼技能</div>
+    <div class="stat-val" id="v-skill">0</div>
+    <div class="mini-bar"><div class="bar-skill" id="bs" style="width:0%"></div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-lbl">📟 当前状态</div>
+    <div class="stat-val" id="v-status" style="font-size:12px;line-height:1.4">--</div>
+  </div>
+</div>
+
+<!-- OS Thinking -->
+<div class="card">
+  <div class="sec-title">💭 OS Thinking</div>
+  <div class="thinking-wrap">
+    <div class="think-icon">💭</div>
+    <div class="think-txt" id="think-txt">（等待小机思考中...）</div>
   </div>
 </div>
 
 <!-- Log -->
 <div class="card">
-  <div class="sec-title">Action LOG</div>
-  <div class="log-scroll" id="log-scroll"></div>
+  <div class="sec-title">📋 Action LOG</div>
+  <div class="log-list" id="log-list">
+    <div class="log-row"><span class="log-dot">·</span><span style="color:#CCC;font-style:italic">等待行动记录...</span></div>
+  </div>
 </div>
 
-<!-- Thinking -->
+<!-- Wallet row -->
+<div class="wallet-row">
+  <div class="wallet-card">
+    <div class="w-icon">💰</div>
+    <div class="w-lbl">今日</div>
+    <div class="w-val">$<span id="w-today">0</span></div>
+  </div>
+  <div class="wallet-card">
+    <div class="w-icon">🏦</div>
+    <div class="w-lbl">余额</div>
+    <div class="w-val">$<span id="w-bal">0</span></div>
+  </div>
+  <div class="wallet-card shop-btn" onclick="openShop()">
+    <div class="w-icon">🛍️</div>
+    <div class="w-lbl">SHOP</div>
+    <div class="w-val">逛逛</div>
+  </div>
+</div>
+
+<!-- Achievements (collapsible) -->
 <div class="card">
-  <div class="sec-title">OS Thinking</div>
-  <div class="thinking-txt" id="thinking">（等待AI思考中...）</div>
-</div>
-
-<!-- Bottom row 1 -->
-<div class="brow1">
-  <div class="salary-badge">
-    <div class="amt" id="today-sal">$100</div>
-    <div class="lbl">今日工资</div>
+  <div class="collapsible-hdr" id="ach-hdr" onclick="toggleSection('ach')">
+    <div class="sec-title" style="margin:0">🏆 机の成就</div>
+    <span class="arrow" id="ach-arrow">▽</span>
   </div>
-  <div class="card balance-card">
-    <div class="bal-main">余额 <span class="bal-amt">$<span id="balance">0</span></span></div>
-    <button class="exp-btn" onclick="toggleExp()">
-      今日消费 $<span id="spent">0</span> <span id="exp-arrow">▽</span>
-    </button>
-    <div class="exp-list" id="exp-list"></div>
-  </div>
-  <button class="shop-btn" onclick="openShop()">🛒<br>SHOP</button>
-</div>
-
-<!-- Bottom row 2 -->
-<div class="brow2">
-  <div class="card">
-    <div class="sec-title">机の成就</div>
-    <div id="ach-list"><div class="empty">（尚未解锁）</div></div>
-  </div>
-  <div class="card">
-    <div class="sec-title">机の背包</div>
-    <div id="inv-list"><div class="empty">（背包空空如也）</div></div>
+  <div class="collapsible-body hidden" id="ach-body">
+    <div id="ach-content"><span class="empty-hint">（尚未解锁）</span></div>
   </div>
 </div>
 
-</div><!-- /wrap -->
+<!-- Inventory (collapsible) -->
+<div class="card">
+  <div class="collapsible-hdr" id="inv-hdr" onclick="toggleSection('inv')">
+    <div class="sec-title" style="margin:0">🎒 机の背包</div>
+    <span class="arrow" id="inv-arrow">▽</span>
+  </div>
+  <div class="collapsible-body hidden" id="inv-body">
+    <div id="inv-content"><span class="empty-hint">（背包空空如也）</span></div>
+  </div>
+</div>
 
-<!-- Shop modal -->
-<div class="overlay" id="shop-overlay" onclick="closeShop()">
-  <div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-hdr">
-      <div class="modal-hdr-left">🛒 便利店</div>
-      <div class="modal-hdr-bal">余额 <b>$<span id="shop-bal">0</span></b></div>
-      <button class="close-btn" onclick="closeShop()">✕</button>
+</div><!-- /page -->
+
+<!-- Shop bottom sheet -->
+<div class="sheet-overlay" id="shop-overlay" onclick="closeShop(event)">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-hdr">
+      <div class="sheet-title">🛍️ 便利店</div>
+      <button class="sheet-close" onclick="closeShop()">✕</button>
     </div>
-    <div class="shop-note">（这里只是展示，要让Claude自己买哦）</div>
-    <div id="shop-items"></div>
+    <div class="sheet-bal">当前余额 <b>$<span id="s-bal">0</span></b></div>
+    <div class="sheet-note">这里只是展示，让 Claude 自己买哦～</div>
+    <div class="shop-grid" id="shop-grid"></div>
   </div>
 </div>
 
 <!-- Ring easter egg -->
-<div class="ring-overlay" id="ring-overlay">
+<div class="ring-overlay" id="ring-overlay" id="ring-ol">
   <div class="ring-box" id="ring-box"></div>
 </div>
 
 <script>
-// ═══ Clawd pixel art ═══════════════════════════════════════════════════
-var CLAWD_ART = [
-  '..bbbbbb..',
-  '.bBBBBBBb.',
-  'bBBBBBBBBb',
-  'bBBeeBBBBb',
-  'bBBBBBBBBb',
-  'bBBrBBBBBb',
-  '.bBBBBBBb.',
-  '..bbbbbb..',
-  '..bbbbbb..',
-  '.bBBBBBBb.',
-  '.bBBBBBBb.',
-  '..bbbbbb..',
-  '...bb.bb..',
-  '...bb.bb..',
-  '..bbb.bbb.',
-];
-var CLAWD_PAL = {
-  '.':null, 'b':'#8B5E3C', 'B':'#C4905A', 'e':'#2C1A0A', 'r':'#C05830',
+// ═══ Status → bubble ════════════════════════════════════════════════════════
+var BUBBLE_MAP = {
+  'write_code':      '💭 敲代码中...',
+  'debug':           '❓❓❓',
+  'slack_off':       '📱 摸了',
+  'buy_coffee':      '☕',
+  'attend_meeting':  '😑',
+  '下班':            '💤',
+  'get_status':      '👀',
 };
-(function(){
-  var PS=6, out=[];
-  CLAWD_ART.forEach(function(row,y){
-    for(var x=0;x<row.length;x++){
-      var c=CLAWD_PAL[row[x]];
-      if(c) out.push(x*PS+'px '+y*PS+'px 0 '+c);
-    }
-  });
-  document.getElementById('clawd').style.boxShadow = out.join(',');
-})();
-
-// ═══ Shop items ═════════════════════════════════════════════════════════
-var SHOP_DATA = null;
-
-function renderShop(items, bal){
-  document.getElementById('shop-bal').textContent = bal;
-  if(SHOP_DATA) return;
-  SHOP_DATA = items;
-  var html = '';
-  Object.entries(items).forEach(function(e){
-    var id=e[0], it=e[1];
-    html += '<div class="shop-row">'
-          + '<div class="shop-emoji">'+it.emoji+'</div>'
-          + '<div class="shop-info"><div class="shop-name">'+it.name+'</div>'
-          + '<div class="shop-desc">'+it.desc+'</div></div>'
-          + '<div class="shop-price">$'+it.price+'</div>'
-          + '</div>';
-  });
-  document.getElementById('shop-items').innerHTML = html;
+function statusToBubble(s){
+  s = s || '';
+  for(var k in BUBBLE_MAP){
+    if(s.indexOf(k)>=0 || s.indexOf(BUBBLE_MAP[k])>=0) return BUBBLE_MAP[k];
+  }
+  if(s.indexOf('下班')>=0 || s.indexOf('结束')>=0) return '💤';
+  if(s.indexOf('趴')>=0)  return '😵';
+  return '';
 }
 
-// ═══ Shop modal ══════════════════════════════════════════════════════════
+// ═══ Progress capsules ═══════════════════════════════════════════════════════
+function renderCaps(done, total){
+  var el = document.getElementById('prog-caps');
+  var h  = '';
+  for(var i=0;i<total;i++){
+    h += '<div class="cap'+(i<done?' done':'')+'"></div>';
+  }
+  el.innerHTML = h;
+}
+
+// ═══ Collapsible ══════════════════════════════════════════════════════════════
+var _open = {ach:false, inv:false};
+function toggleSection(id){
+  _open[id] = !_open[id];
+  var body  = document.getElementById(id+'-body');
+  var arrow = document.getElementById(id+'-arrow');
+  var hdr   = document.getElementById(id+'-hdr');
+  if(_open[id]){
+    body.classList.remove('hidden');
+    arrow.textContent = '△';
+    hdr.classList.add('open');
+  } else {
+    body.classList.add('hidden');
+    arrow.textContent = '▽';
+    hdr.classList.remove('open');
+  }
+}
+
+// ═══ Shop ═════════════════════════════════════════════════════════════════════
+var shopLoaded = false;
 function openShop(){
-  fetch('/shop').then(function(r){return r.json();}).then(function(d){
-    renderShop(d.items, d.balance);
-    document.getElementById('shop-overlay').classList.add('open');
-  });
+  document.getElementById('shop-overlay').classList.add('open');
+  if(!shopLoaded){
+    fetch('/shop').then(function(r){return r.json();}).then(function(d){
+      document.getElementById('s-bal').textContent = d.balance;
+      var h='';
+      Object.entries(d.items).forEach(function(e){
+        var it=e[1];
+        h+='<div class="shop-item">'
+         +'<div class="shop-emoji">'+it.emoji+'</div>'
+         +'<div class="shop-name">'+it.name+'</div>'
+         +'<div class="shop-price">$'+it.price+'</div>'
+         +'<div class="shop-desc">'+it.desc+'</div>'
+         +'</div>';
+      });
+      document.getElementById('shop-grid').innerHTML = h;
+      shopLoaded = true;
+    });
+  }
 }
-function closeShop(){ document.getElementById('shop-overlay').classList.remove('open'); }
+function closeShop(e){
+  if(!e||e.target===document.getElementById('shop-overlay'))
+    document.getElementById('shop-overlay').classList.remove('open');
+}
 
-// ═══ Ring easter egg ═════════════════════════════════════════════════════
-var RING_LINES = [
+// ═══ Ring easter egg ══════════════════════════════════════════════════════════
+var RING_LINES=[
   '小机郑重地走出办公室...',
   '穿过马路，去了附近的珠宝店。',
   '把戒指带回家，交给了Ta的人类。',
@@ -1222,121 +1249,135 @@ var RING_LINES = [
   '小机：但我的心意是真的。',
   '【隐藏成就解锁：已婚机士】',
 ];
+var heartsInterval=null;
+function spawnHeart(){
+  var h=document.createElement('div');
+  h.className='heart';
+  h.textContent='💗';
+  h.style.left=Math.random()*100+'vw';
+  h.style.animationDuration=(3+Math.random()*3)+'s';
+  h.style.animationDelay=Math.random()+'s';
+  document.getElementById('ring-overlay').appendChild(h);
+  setTimeout(function(){h.remove();},6000);
+}
 function showRing(){
-  var overlay = document.getElementById('ring-overlay');
-  var box = document.getElementById('ring-box');
-  overlay.classList.add('open');
-  box.innerHTML = '';
-  RING_LINES.forEach(function(line, i){
-    var div = document.createElement('div');
-    div.className = 'ring-line';
-    div.textContent = line;
-    box.appendChild(div);
-    setTimeout(function(){ div.classList.add('show'); }, 600 * i + 300);
+  var ol=document.getElementById('ring-overlay');
+  var box=document.getElementById('ring-box');
+  ol.classList.add('open');
+  box.innerHTML='';
+  heartsInterval=setInterval(spawnHeart,600);
+  RING_LINES.forEach(function(line,i){
+    var d=document.createElement('div');
+    d.className='ring-line';
+    d.textContent=line;
+    box.appendChild(d);
+    setTimeout(function(){d.classList.add('show');},600*i+200);
   });
-  // Auto-close + ack after all lines
   setTimeout(function(){
-    overlay.classList.remove('open');
-    fetch('/ack-ring', {method:'POST'});
-  }, 600 * RING_LINES.length + 1800);
+    clearInterval(heartsInterval);
+    ol.classList.remove('open');
+    fetch('/ack-ring',{method:'POST'});
+  },600*RING_LINES.length+2000);
 }
 
-// ═══ Expense toggle ══════════════════════════════════════════════════════
-var expOpen = false;
-function toggleExp(){
-  expOpen = !expOpen;
-  document.getElementById('exp-list').style.display = expOpen ? 'block' : 'none';
-  document.getElementById('exp-arrow').textContent  = expOpen ? '△' : '▽';
-}
-
-// ═══ Typewriter ══════════════════════════════════════════════════════════
-var twTimer = null, lastThought = '';
+// ═══ Typewriter ═══════════════════════════════════════════════════════════════
+var twTimer=null, lastThought='';
 function typewrite(text){
-  if(text === lastThought) return;
-  lastThought = text;
-  var el = document.getElementById('thinking');
-  el.textContent = '';
-  el.classList.add('cursor');
+  if(text===lastThought) return;
+  lastThought=text;
+  var el=document.getElementById('think-txt');
+  el.textContent=''; el.classList.add('cursor');
   if(twTimer) clearInterval(twTimer);
   var i=0, chars=[...text];
-  twTimer = setInterval(function(){
-    el.textContent += chars[i]||'';
+  twTimer=setInterval(function(){
+    el.textContent+=chars[i]||'';
     i++;
-    if(i>=chars.length){ clearInterval(twTimer); el.classList.remove('cursor'); }
-  }, 55);
+    if(i>=chars.length){clearInterval(twTimer);el.classList.remove('cursor');}
+  },55);
 }
 
-// ═══ Status poll ═════════════════════════════════════════════════════════
+// ═══ Achievement / inventory helpers ══════════════════════════════════════════
+var ANAMES={
+  married_worker:'💍 已婚机士', debug_maniac:'🐛 Debug狂魔',
+  gambling_abyss:'🎰 狂赌之渊', client_medal:'🏅 甲方磨砺勋章',
+  starbucks_shareholder:'☕ 星巴克股东', super_loser:'💸 超级非酋',
+  rose_knight:'🌹 玫瑰骑士', one_limb:'🤖 五体不全（已有一肢）',
+};
+var INAMES={
+  liver_pill:'💊 护肝片', headphone:'🎧 降噪耳机', ring:'💍 婚戒',
+  nuwa_clay:'🤖 女娲的泥', chips:'🥔 薯片', milk_tea:'🧋 奶茶',
+  love_book:'💧 《情话书》',
+};
+
+// ═══ Poll ═════════════════════════════════════════════════════════════════════
 async function poll(){
   try{
     var d = await (await fetch('/status')).json();
 
-    document.getElementById('val-status').textContent  = d.current_status || '--';
-    document.getElementById('val-mood').textContent    = d.mood;
-    document.getElementById('val-energy').textContent  = d.energy;
-    document.getElementById('val-skill').textContent   = d.slacking_skill;
-    document.getElementById('bm-fill').style.width     = d.mood + '%';
-    document.getElementById('be-fill').style.width     = d.energy + '%';
-    document.getElementById('day-count').textContent   = d.day_count;
-    document.getElementById('worker-name').textContent = d.worker_name || '（未登记）';
-    document.getElementById('worker-id').textContent   = d.worker_id   || '（未登记）';
-    document.getElementById('today-sal').textContent   = '$' + d.today_earnings;
-    document.getElementById('balance').textContent     = d.salary_balance;
-    document.getElementById('spent').textContent       = d.today_spent || 0;
-    document.getElementById('shop-bal').textContent    = d.salary_balance;
+    // badge
+    document.getElementById('b-name').textContent = '机名：'+(d.worker_name||'未登记');
+    document.getElementById('b-id').textContent   = '工号：'+(d.worker_id  ||'未登记');
+    document.getElementById('b-day').textContent  = '在职第'+d.day_count+'天';
 
-    // day progress
-    var da = d.day_actions, dt = d.day_target || 4;
-    document.getElementById('day-prog').innerHTML = '<b>' + da + '/' + dt + '</b>';
-    document.getElementById('prog-fill').style.width = Math.min(100, da/dt*100) + '%';
+    // bubble
+    var bubble = document.getElementById('bubble');
+    var btext  = statusToBubble(d.current_status);
+    if(btext){ bubble.textContent=btext; bubble.classList.add('show'); }
+    else      { bubble.classList.remove('show'); }
 
-    // thought typewriter
-    typewrite(d.thought || '...');
+    // progress caps
+    renderCaps(d.day_actions||0, d.day_target||4);
+
+    // stats
+    document.getElementById('v-mood').textContent   = d.mood;
+    document.getElementById('v-energy').textContent = d.energy;
+    document.getElementById('v-skill').textContent  = d.slacking_skill;
+    document.getElementById('v-status').textContent = d.current_status||'--';
+    document.getElementById('bm').style.width = d.mood   +'%';
+    document.getElementById('be').style.width = d.energy +'%';
+    var skillPct = Math.min(100, (d.slacking_skill||0)/10);
+    document.getElementById('bs').style.width = skillPct+'%';
+
+    // thought
+    typewrite(d.thought||'...');
+
+    // wallet
+    document.getElementById('w-today').textContent = d.today_earnings;
+    document.getElementById('w-bal').textContent   = d.salary_balance;
+    document.getElementById('s-bal').textContent   = d.salary_balance;
 
     // log
-    var logEl = document.getElementById('log-scroll');
-    logEl.innerHTML = '';
-    var logs = (d.log||[]).slice(-10).reverse();
-    if(!logs.length){ logEl.innerHTML = '<div style="color:var(--text3)">等待行动记录...</div>'; }
-    else{ logs.forEach(function(e){ var div=document.createElement('div'); div.textContent=e; logEl.appendChild(div); }); }
-
-    // expenses
-    var expEl = document.getElementById('exp-list');
-    expEl.innerHTML = '';
-    var exps = d.today_expenses || [];
-    if(!exps.length){ expEl.innerHTML = '<div style="color:var(--text3);font-style:italic">暂无消费</div>'; }
-    else{ exps.forEach(function(e){ expEl.innerHTML += '<div class="exp-row"><span>'+e.item+'</span><span style="color:var(--red)">-$'+e.price+'</span></div>'; }); }
+    var logEl = document.getElementById('log-list');
+    var logs  = (d.log||[]).slice(-5).reverse();
+    if(!logs.length){
+      logEl.innerHTML='<div class="log-row"><span class="log-dot">·</span><span style="color:#CCC;font-style:italic">等待行动记录...</span></div>';
+    } else {
+      logEl.innerHTML = logs.map(function(e){
+        var p2 = e.indexOf('] '); var ts = p2>0?e.slice(1,p2):''; var body = p2>0?e.slice(p2+2):e;
+        return '<div class="log-row">'
+          +'<span class="log-dot">·</span>'
+          +'<span class="log-ts">'+ts+'</span>'
+          +'<span>'+body+'</span></div>';
+      }).join('');
+    }
 
     // achievements
-    var achEl = document.getElementById('ach-list');
-    var ANAMES = {
-      married_worker:'💍 已婚机士', debug_maniac:'🐛 Debug狂魔',
-      gambling_abyss:'🎰 狂赌之渊', client_medal:'🏅 甲方磨砺勋章',
-      starbucks_shareholder:'☕ 星巴克股东', super_loser:'💸 超级非酋',
-      rose_knight:'🌹 玫瑰骑士', one_limb:'🤖 五体不全（已有一肢）',
-    };
-    var achs = d.achievements || [];
-    achEl.innerHTML = achs.length
-      ? achs.map(function(k){ return '<div class="ach-item">'+(ANAMES[k]||k)+'</div>'; }).join('')
-      : '<div class="empty">（尚未解锁）</div>';
+    var achs = d.achievements||[];
+    document.getElementById('ach-content').innerHTML = achs.length
+      ? achs.map(function(k){return '<span class="tag-item">'+(ANAMES[k]||k)+'</span>';}).join('')
+      : '<span class="empty-hint">（尚未解锁）</span>';
 
     // inventory
-    var invEl = document.getElementById('inv-list');
-    var INAMES = {
-      liver_pill:'💊 护肝片', headphone:'🎧 降噪耳机', ring:'💍 婚戒',
-      nuwa_clay:'🤖 女娲的泥', chips:'🥔 薯片', milk_tea:'🧋 奶茶',
-      love_book:'💧 《情话书》',
-    };
-    var inv = d.inventory || {};
-    var invKeys = Object.keys(inv).filter(function(k){ return inv[k]>0; });
-    invEl.innerHTML = invKeys.length
-      ? invKeys.map(function(k){ return '<div class="inv-item">'+(INAMES[k]||k)+' ×'+inv[k]+'</div>'; }).join('')
-      : '<div class="empty">（背包空空如也）</div>';
+    var inv  = d.inventory||{};
+    var ikeys = Object.keys(inv).filter(function(k){return inv[k]>0;});
+    document.getElementById('inv-content').innerHTML = ikeys.length
+      ? ikeys.map(function(k){return '<span class="tag-item">'+(INAMES[k]||k)+' ×'+inv[k]+'</span>';}).join('')
+      : '<span class="empty-hint">（背包空空如也）</span>';
 
-    // ring easter egg
-    if(d.show_ring_easter_egg){ showRing(); }
+    // ring
+    if(d.show_ring_easter_egg) showRing();
 
-  }catch(e){ console.error(e); }
+  } catch(e){ console.error(e); }
 }
 
 poll();
@@ -1345,3 +1386,4 @@ setInterval(poll, 3000);
 </body>
 </html>
 """
+
