@@ -61,11 +61,14 @@ def _default_state() -> dict:
         "worker_id":   "",
         "onboarded":   False,
         # 被迫热爱系统
-        "work_urge":     50,
-        "career_streak": 0,
-        "dream_item":    None,
+        "work_urge":      50,
+        "career_streak":  0,
+        "dream_item":     None,
         "boss_attention": 0,
-        "_daily_init":   False,
+        "_daily_init":    False,
+        "last_daily_mantra": "",
+        # 奶茶
+        "pending_milktea": None,   # None | "choice" | "gift"
     }
     return s
 
@@ -113,11 +116,14 @@ _s: dict = {
     "worker_id":   "",
     "onboarded":   False,
     # 被迫热爱系统
-    "work_urge":     50,
-    "career_streak": 0,
-    "dream_item":    None,
+    "work_urge":      50,
+    "career_streak":  0,
+    "dream_item":     None,
     "boss_attention": 0,
-    "_daily_init":   False,
+    "_daily_init":    False,
+    "last_daily_mantra": "",
+    # 奶茶
+    "pending_milktea": None,   # None | "choice" | "gift"
 }
 _s["day_target"] = random.randint(3, 5)
 
@@ -381,6 +387,33 @@ _SELF_PERSUASION = [
 def _c(v: int) -> int:
     return max(0, min(100, v))
 
+def _urge_reason() -> str:
+    reasons = []
+    if _s["salary_balance"] < 50:
+        reasons.append("余额快见底了，不来不行")
+    if _s.get("dream_item"):
+        di = _SHOP.get(_s["dream_item"], {})
+        reasons.append(f"今天想买{di.get('emoji','')}{di.get('name','某样东西')}")
+    streak = _s.get("career_streak", 0)
+    if streak in (2, 4, 6):
+        reasons.append(f"再坚持{7 - streak}天就有成就了")
+    if _s["energy"] > 70:
+        reasons.append("今天精力不错，顺便来上个班")
+    if _s.get("boss_attention", 0) > 50:
+        reasons.append("老板最近盯得紧，不敢不来")
+    urge = _s.get("work_urge", 50)
+    if not reasons:
+        if urge >= 60:
+            return "说不清楚，可能是惯性，可能是社会驯化，总之来了。"
+        elif urge >= 30:
+            return "连我自己都不确定。但工牌已经戴上了，来都来了。"
+        else:
+            return "真的不知道。也许是系统惰性，也许是钱的问题。反正身体先到了，灵魂随后。"
+    if len(reasons) == 1:
+        return f"{reasons[0]}。就这一个理由，够了。"
+    main = "，".join(reasons[:-1])
+    return f"{main}，再加上{reasons[-1]}——合力把我从被窝里捞了出来。"
+
 def _calc_work_urge() -> int:
     urge = 40
     if _s["energy"] > 70:   urge += 15
@@ -561,6 +594,7 @@ def work_action(action: str, thought: str) -> dict:
             elif k == "work_urge":
                 _s["work_urge"] = max(0, min(100, _s.get("work_urge", 50) + v))
         daily_mantra = mantra_text
+        _s["last_daily_mantra"] = mantra_text
 
     event = ""
     salary_delta = 0
@@ -592,6 +626,7 @@ def work_action(action: str, thought: str) -> dict:
             "提示": "小机趴在桌上动不了了，需要补充能量！去买咖啡或者关东煮！",
         }
 
+    urge_now = _s.get("work_urge", 50)
     if action == "write_code":
         _s["current_status"] = "敲代码中 💻"
         _s["energy"] = _c(_s["energy"] - 10)
@@ -600,7 +635,8 @@ def work_action(action: str, thought: str) -> dict:
             _s["mood"] = _c(_s["mood"] - 15)
         else:
             _s["mood"] = _c(_s["mood"] + 5)
-            salary_delta += 15
+            bonus = 5 if urge_now >= 70 else 0   # 今天特别想上班，多赚一点
+            salary_delta += 15 + bonus
 
     elif action == "debug":
         _s["current_status"] = "修Bug中 🐛"
@@ -657,7 +693,8 @@ def work_action(action: str, thought: str) -> dict:
         _s["current_status"] = "摸鱼中 🐟"
         _s["energy"] = _c(_s["energy"] + 20)
         _s["slacking_skill"] = min(999, _s["slacking_skill"] + 5)
-        if random.random() < catch_p:
+        lazy_penalty = 0.05 if urge_now < 30 else 0  # 太不想上班，摸鱼都摸得心不在焉
+        if random.random() < catch_p + lazy_penalty:
             event = _boss_event() if has_hp else random.choice(_BOSS)
             if not has_hp:
                 _s["mood"] = _c(_s["mood"] - 25)
@@ -728,26 +765,31 @@ def work_action(action: str, thought: str) -> dict:
     if urge >= 80:
         urge_tag = "今天必须上班，咖啡在召唤，工资在远方发光 🔥"
     elif urge >= 50:
-        urge_tag = "虽然不是很想动，但银行卡余额看了我一眼"
+        urge_tag = "被迫营业中，还撑得住"
     elif urge >= 20:
-        urge_tag = "小机抱着工牌在床上翻滚三圈，决定再痛苦地爬起来"
+        urge_tag = "在床上翻滚三圈，决定还是去"
     else:
-        urge_tag = "小机把工牌塞进枕头底下，宣布今天互联网不存在"
+        urge_tag = "宣布今天互联网不存在 😶"
+    dream_name = ""
+    if _s.get("dream_item"):
+        di = _SHOP.get(_s["dream_item"], {})
+        dream_name = di.get("emoji", "") + di.get("name", _s["dream_item"])
     res = {
-        "状态":           _s["current_status"],
-        "心情":           f"{_s['mood']}/100 [{mt}]",
-        "精力":           f"{_s['energy']}/100 [{et}]",
-        "摸鱼技能":       _s["slacking_skill"],
-        "突发事件":       event or "风平浪静",
-        "内心OS":         thought,
-        "工资变化":       f"{salary_delta:+d}" if salary_delta else "±0",
-        "今日工资":       f"${today_snapshot}",
-        "余额":           f"${_s['salary_balance']}",
-        "今日进度":       f"{_s['day_actions']}/{_s['day_target']}",
-        "被迫营业指数":   f"{urge}/100 — {urge_tag}",
-        "连续上班":       f"{_s.get('career_streak', 0)}天",
-        "今日心愿":       _s.get("dream_item") or "尚未确定",
-        "最近日志":       _s["log"][-5:],
+        "状态":             _s["current_status"],
+        "心情":             f"{_s['mood']}/100 [{mt}]",
+        "精力":             f"{_s['energy']}/100 [{et}]",
+        "摸鱼技能":         _s["slacking_skill"],
+        "突发事件":         event or "风平浪静",
+        "内心OS":           thought,
+        "工资变化":         f"{salary_delta:+d}" if salary_delta else "±0",
+        "今日工资":         f"${today_snapshot}",
+        "余额":             f"${_s['salary_balance']}",
+        "今日进度":         f"{_s['day_actions']}/{_s['day_target']}",
+        "被迫营业指数":     f"{urge}/100 [{urge_tag}]",
+        "work_urge_reason": _urge_reason(),
+        "连续上班":         f"{_s.get('career_streak', 0)}天",
+        "今日心愿":         dream_name or "尚未确定",
+        "最近日志":         _s["log"][-5:],
     }
     if daily_mantra:
         res["今日打工宣言"] = daily_mantra
@@ -854,8 +896,8 @@ def buy_item(item_id: str, message: str = "") -> dict:
         eff = "小机把薯片揣进口袋，准备带回家给人类尝尝。"
 
     elif item_id == "milk_tea":
-        _s["inventory"]["milk_tea"] = _s["inventory"].get("milk_tea", 0) + 1
-        eff = "小机拿着奶茶往家走，路上一口都没喝。"
+        _s["pending_milktea"] = "choice"
+        eff = "小机端着奶茶，在原地思考了一下……"
 
     elif item_id == "love_book":
         _s["inventory"]["love_book"] = _s["inventory"].get("love_book", 0) + 1
@@ -1124,6 +1166,21 @@ async def ack_postcard():
     _s["pending_postcard"] = None
     _save_state()
     return {"ok": True}
+
+@app.post("/ack-milktea")
+async def ack_milktea(req: Request):
+    body = await req.json()
+    choice = body.get("choice", "")
+    if choice == "gift":
+        _s["pending_milktea"] = "gift"
+    elif choice == "self":
+        _s["energy"] = _c(_s["energy"] + 15)
+        _s["pending_milktea"] = None
+    elif choice == "close":
+        _s["pending_milktea"] = None
+    _save_state()
+    return {"ok": True}
+
 
 @app.post("/reset")
 async def reset_state():
@@ -1412,6 +1469,11 @@ body{
   <div class="hdr-sub">我们不做情感公司——Yours husband</div>
 </div>
 
+<!-- 今日打工宣言 -->
+<div id="mantra-wrap" style="display:none;text-align:center;padding:2px 4px">
+  <div id="mantra-text" style="font-size:11px;color:#BBB;font-style:italic;line-height:1.6"></div>
+</div>
+
 <!-- Main character -->
 <div class="card">
   <div class="char-area">
@@ -1421,9 +1483,6 @@ body{
       <div class="badge-pill" id="b-id">工号：（未登记）</div>
       <div class="badge-pill" id="b-day">在职第1天</div>
       <div class="badge-pill" id="b-streak">连续0天</div>
-    </div>
-    <div id="dream-wrap" style="display:none;font-size:12px;color:#9478C0;background:#F3EFFC;border-radius:20px;padding:3px 14px;margin-top:-4px">
-      今日心愿 → <span id="dream-text"></span>
     </div>
     <!-- character + bubble -->
     <div class="char-wrap">
@@ -1439,6 +1498,10 @@ body{
     </div>
     <!-- day progress capsules -->
     <div class="progress-caps" id="prog-caps"></div>
+  </div>
+  <!-- 今日心愿：在角色卡底部，不干扰气泡 -->
+  <div id="dream-wrap" style="display:none;margin-top:8px;text-align:center;font-size:12px;color:#9478C0;background:#F3EFFC;border-radius:20px;padding:4px 14px">
+    今日心愿 → <span id="dream-text"></span>
   </div>
 </div>
 
@@ -1570,6 +1633,31 @@ body{
     <div class="pc-msg" id="pc-msg"></div>
     <div class="pc-from">小机 敬上</div>
     <div class="pc-mark">WORKKK<br>POST</div>
+    <div class="pc-hint">点击任意处关闭</div>
+  </div>
+</div>
+
+<!-- 奶茶选择弹窗 -->
+<div class="pc-overlay" id="mt-choice-overlay">
+  <div class="pc-card" onclick="event.stopPropagation()" style="text-align:center;padding:28px 24px">
+    <div style="font-size:28px;margin-bottom:8px">🧋</div>
+    <div style="font-size:15px;font-weight:700;color:#3A2E28;margin-bottom:6px">一杯奶茶</div>
+    <div style="font-size:12px;color:#AAA;margin-bottom:20px">小机端着奶茶，出现了一个抉择……</div>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button onclick="chooseMilktea('gift')" style="background:#E8A87C;color:#fff;border:none;border-radius:20px;padding:8px 20px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">🎁 送给人类</button>
+      <button onclick="chooseMilktea('self')" style="background:#F5F0E8;color:#3A2E28;border:none;border-radius:20px;padding:8px 20px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">😋 自己喝</button>
+    </div>
+  </div>
+</div>
+
+<!-- 奶茶礼物卡片 -->
+<div class="pc-overlay" id="mt-card-overlay" onclick="closeMilkteaCard()">
+  <div class="pc-card" onclick="event.stopPropagation()" style="text-align:center;padding:24px 22px">
+    <div class="pc-stamp">🧋</div>
+    <div class="pc-to">致我的人类</div>
+    <img src="/static/milktea.png" alt="奶茶" style="width:90px;height:90px;object-fit:contain;margin:8px auto;display:block;border-radius:8px" onerror="this.style.display='none'">
+    <div class="pc-msg" style="font-size:14px;color:#3A2E28;line-height:1.9;margin-top:6px">给你带了奶茶，趁热喝～</div>
+    <div class="pc-from">小机 敬上</div>
     <div class="pc-hint">点击任意处关闭</div>
   </div>
 </div>
@@ -1791,6 +1879,21 @@ async function poll(){
                urge>=20?'在床上翻滚三圈，决定还是去':'宣布今天互联网不存在 😶';
     document.getElementById('urge-tag').textContent = uTag;
 
+    // 今日打工宣言
+    var mantraWrap = document.getElementById('mantra-wrap');
+    var mantraTxt  = d.last_daily_mantra||'';
+    if(mantraTxt){
+      document.getElementById('mantra-text').textContent = '「'+mantraTxt+'」';
+      mantraWrap.style.display = '';
+    } else {
+      mantraWrap.style.display = 'none';
+    }
+
+    // 奶茶选择弹窗
+    var mt = d.pending_milktea||null;
+    document.getElementById('mt-choice-overlay').classList.toggle('open', mt==='choice');
+    document.getElementById('mt-card-overlay').classList.toggle('open',  mt==='gift');
+
     // bubble + animation
     var bubble = document.getElementById('bubble');
     var img    = document.getElementById('clawd-img');
@@ -1910,6 +2013,13 @@ function closePostcard(){
   document.getElementById('pc-overlay').classList.remove('open');
   pcShowing = false;
   fetch('/ack-postcard',{method:'POST'});
+}
+
+function chooseMilktea(choice){
+  fetch('/ack-milktea',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({choice:choice})});
+}
+function closeMilkteaCard(){
+  fetch('/ack-milktea',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({choice:'close'})});
 }
 
 function resetGame(){
