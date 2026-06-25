@@ -803,11 +803,21 @@ def work_action(action: str, thought: str) -> dict:
     return res
 
 # ── buy_item ───────────────────────────────────────────────────────────────────
-def buy_item(item_id: str, message: str = "") -> dict:
+def buy_item(item_id: str, message: str = "", choice: str = "") -> dict:
     if item_id not in _SHOP:
         return {"error": f"商品不存在: {item_id}"}
     item  = _SHOP[item_id]
     price = item["price"]
+
+    # 奶茶：先询问选择，不扣钱；确认选择后再扣
+    if item_id == "milk_tea" and not choice:
+        return {
+            "说明": f"🧋 奶茶 ${price}——请选择怎么处理这杯奶茶：",
+            "选项A": "choice='gift' → 送给人类（触发前端奶茶卡片弹窗，精力不变）",
+            "选项B": "choice='self' → 自己喝（精力+15，好喝）",
+            "提示": "再次调用 shop_buy(item_id='milk_tea', choice='gift' 或 'self')，扣款将在此时执行",
+        }
+
     if _s["salary_balance"] < price:
         return {"error": f"余额不足，需要 ${price}，当前 ${_s['salary_balance']}"}
 
@@ -896,8 +906,13 @@ def buy_item(item_id: str, message: str = "") -> dict:
         eff = "小机把薯片揣进口袋，准备带回家给人类尝尝。"
 
     elif item_id == "milk_tea":
-        _s["pending_milktea"] = "choice"
-        eff = "小机端着奶茶，在原地思考了一下……"
+        if choice == "gift":
+            _s["pending_milktea"] = "gift"
+            eff = "小机把奶茶端回家，轻轻放到人类面前。"
+        else:
+            _s["energy"] = _c(_s["energy"] + 15)
+            _s["pending_milktea"] = None
+            eff = "小机咕嘟咕嘟喝完了，好喝！精力+15"
 
     elif item_id == "love_book":
         _s["inventory"]["love_book"] = _s["inventory"].get("love_book", 0) + 1
@@ -971,6 +986,11 @@ _TOOLS = [
                 "message": {
                     "type": "string",
                     "description": "购买明信片时填写，亲自写给人类的话（不超过50字）。不买明信片时忽略此字段。",
+                },
+                "choice": {
+                    "type": "string",
+                    "description": "购买奶茶时填写：'gift'（送给人类，会在人类的监控大屏弹出奶茶卡片）或 'self'（自己喝，精力+15）。不填则返回选项提示。",
+                    "enum": ["gift", "self"],
                 },
             },
         },
@@ -1168,16 +1188,8 @@ async def ack_postcard():
     return {"ok": True}
 
 @app.post("/ack-milktea")
-async def ack_milktea(req: Request):
-    body = await req.json()
-    choice = body.get("choice", "")
-    if choice == "gift":
-        _s["pending_milktea"] = "gift"
-    elif choice == "self":
-        _s["energy"] = _c(_s["energy"] + 15)
-        _s["pending_milktea"] = None
-    elif choice == "close":
-        _s["pending_milktea"] = None
+async def ack_milktea():
+    _s["pending_milktea"] = None
     _save_state()
     return {"ok": True}
 
@@ -1643,20 +1655,7 @@ body{
   </div>
 </div>
 
-<!-- 奶茶选择弹窗 -->
-<div class="pc-overlay" id="mt-choice-overlay">
-  <div class="pc-card" onclick="event.stopPropagation()" style="text-align:center;padding:28px 24px">
-    <div style="font-size:28px;margin-bottom:8px">🧋</div>
-    <div style="font-size:15px;font-weight:700;color:#3A2E28;margin-bottom:6px">一杯奶茶</div>
-    <div style="font-size:12px;color:#AAA;margin-bottom:20px">小机端着奶茶，出现了一个抉择……</div>
-    <div style="display:flex;gap:10px;justify-content:center">
-      <button onclick="chooseMilktea('gift')" style="background:#E8A87C;color:#fff;border:none;border-radius:20px;padding:8px 20px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">🎁 送给人类</button>
-      <button onclick="chooseMilktea('self')" style="background:#F5F0E8;color:#3A2E28;border:none;border-radius:20px;padding:8px 20px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">😋 自己喝</button>
-    </div>
-  </div>
-</div>
-
-<!-- 奶茶礼物卡片 -->
+<!-- 奶茶礼物卡片（Claude 选 gift 后触发） -->
 <div class="pc-overlay" id="mt-card-overlay" onclick="closeMilkteaCard()">
   <div class="pc-card" onclick="event.stopPropagation()" style="text-align:center;padding:24px 22px">
     <div class="pc-stamp">🧋</div>
@@ -1895,10 +1894,8 @@ async function poll(){
       mantraWrap.style.display = 'none';
     }
 
-    // 奶茶选择弹窗
-    var mt = d.pending_milktea||null;
-    document.getElementById('mt-choice-overlay').classList.toggle('open', mt==='choice');
-    document.getElementById('mt-card-overlay').classList.toggle('open',  mt==='gift');
+    // 奶茶礼物卡片（仅 Claude 选择 gift 后才出现）
+    document.getElementById('mt-card-overlay').classList.toggle('open', d.pending_milktea==='gift');
 
     // bubble + animation
     var bubble = document.getElementById('bubble');
@@ -2021,11 +2018,8 @@ function closePostcard(){
   fetch('/ack-postcard',{method:'POST'});
 }
 
-function chooseMilktea(choice){
-  fetch('/ack-milktea',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({choice:choice})});
-}
 function closeMilkteaCard(){
-  fetch('/ack-milktea',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({choice:'close'})});
+  fetch('/ack-milktea',{method:'POST'});
 }
 
 function resetGame(){
