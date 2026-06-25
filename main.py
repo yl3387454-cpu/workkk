@@ -567,7 +567,7 @@ def work_action(action: str, thought: str) -> dict:
     return res
 
 # ── buy_item ───────────────────────────────────────────────────────────────────
-def buy_item(item_id: str) -> dict:
+def buy_item(item_id: str, message: str = "") -> dict:
     if item_id not in _SHOP:
         return {"error": f"商品不存在: {item_id}"}
     item  = _SHOP[item_id]
@@ -672,7 +672,7 @@ def buy_item(item_id: str) -> dict:
         eff = random.choice(_FISH)
 
     elif item_id == "postcard":
-        msg = _gen_postcard()
+        msg = message.strip() if message.strip() else random.choice(_POSTCARDS)
         postcard = {"to": "致我的人类", "from": "小机 敬上", "message": msg, "stamp": "🌸"}
         _s["pending_postcard"] = postcard
         eff = f"小机提起笔，写道：{msg}"
@@ -721,6 +721,7 @@ _TOOLS = [
         "name": "shop_buy",
         "description": (
             "在便利店买东西，消耗 salary_balance。先 get_status 查余额再买。"
+            "购买 postcard（明信片）时，请在 message 字段亲自写下想对人类说的话——你自己写才最真诚！"
         ),
         "inputSchema": {
             "type": "object",
@@ -730,6 +731,10 @@ _TOOLS = [
                     "type": "string",
                     "description": "商品ID",
                     "enum": list(_SHOP.keys()),
+                },
+                "message": {
+                    "type": "string",
+                    "description": "购买明信片时填写，亲自写给人类的话（不超过50字）。不买明信片时忽略此字段。",
                 },
             },
         },
