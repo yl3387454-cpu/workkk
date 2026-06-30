@@ -1083,7 +1083,9 @@ def _auth(req: Request) -> None:
 async def oauth_resource(req: Request):
     b = _base(req)
     return {"resource": b, "authorization_servers": [b]}
-
+@app.get("/.well-known/oauth-protected-resource/mcp")
+async def oauth_resource_mcp(req: Request):
+    return await oauth_resource(req)
 @app.get("/.well-known/oauth-authorization-server")
 async def oauth_meta(req: Request):
     b = _base(req)
