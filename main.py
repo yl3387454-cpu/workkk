@@ -1107,7 +1107,9 @@ async def oauth_register_options():
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "*",
     })
-
+@app.get("/oauth/register")
+async def oauth_register_get():
+    return Response(status_code=200)
 @app.post("/oauth/register")
 async def oauth_register(req: Request):
     body = await req.json()
